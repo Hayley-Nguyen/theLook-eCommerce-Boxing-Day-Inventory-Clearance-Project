@@ -1,0 +1,56 @@
+## Identify Slow-Moving Products
+ -- Analyse stock turnover rate for each product = cost of good sold/ average inventory
+ -- With product that have turnover rate that are less than 20% are low turnover rate, slow-moving
+WITH slow_moving_products AS
+(
+  WITH COGS_of_each_product AS (
+    SELECT 
+      product_name,
+      SUM(cost) AS total_cost
+    FROM bigquery-public-data.thelook_ecommerce.inventory_items
+    GROUP BY product_name
+  ), 
+  average_inventory_of_each_product AS (
+    SELECT
+      product_name,
+      AVG(product_retail_price) AS average_inventory
+    FROM bigquery-public-data.thelook_ecommerce.inventory_items
+    GROUP BY product_name
+  )
+  SELECT 
+    A.product_name,
+    A.total_cost / B.average_inventory AS turnover_rate
+  FROM COGS_of_each_product A
+  JOIN average_inventory_of_each_product B
+  ON A.product_name = B.product_name
+  WHERE A.total_cost / B.average_inventory<= 20
+  ORDER BY turnover_rate ASC), 
+
+
+ ## Stock Aging Analysis
+ -- Evaluate the age of inventory for each product.
+-- Identify products with older inventory that need to be cleared 
+ stock_aging_analysis AS
+  (SELECT
+    product_name,
+    AVG(DATE_DIFF(DATE("2023-12-19"), DATE(created_at), MONTH)) AS avg_months_since_creation
+  FROM bigquery-public-data.thelook_ecommerce.inventory_items
+  WHERE sold_at IS NULL
+  GROUP BY product_name
+  HAVING AVG(DATE_DIFF(DATE("2023-12-19"), DATE(created_at), MONTH)) > 12)
+
+  -- I am also interested in items that takes long time to be sold 
+
+## Now Join the table Identify Slow-Moving Products with Stock Aging Analysis we have the list of product that need to be clear on this Boxing Day 
+
+SELECT 
+  SMP.product_name,
+  SMP.turnover_rate,
+  SAA.avg_months_since_creation
+FROM slow_moving_products SMP
+JOIN stock_aging_analysis SAA
+ON SMP.product_name = SAA.product_name
+ORDER BY turnover_rate DESC;
+
+-- So I now have the list of slow turnover rate with the high inventory that need to be clear in the coming Boxing Day
+
