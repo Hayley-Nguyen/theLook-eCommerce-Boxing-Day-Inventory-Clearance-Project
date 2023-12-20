@@ -1,0 +1,135 @@
+--View the inventory_items table
+
+SELECT *
+FROM bigquery-public-data.thelook_ecommerce.inventory_items;
+
+--I want to make sure the intergrity, accurarte and consistancy of our data 
+-- Make sure that all of the id of the table are unique, there is no duplicate data by checking if the total rows is equal to to number Id distinct values or not?
+
+
+SELECT 
+ COUNT (id) as total_rows,
+ COUNT(DISTINCT(id)) as totaln_distinct_id
+FROM bigquery-public-data.thelook_ecommerce.inventory_items;
+
+-- They are equal so our id column does not have any duplicate data 
+-- We also want to make sure that there is no null value in this id column
+
+SELECT *
+FROM bigquery-public-data.thelook_ecommerce.inventory_items
+WHERE id is NULL; 
+
+-- There is no data display so the id column is good 
+-- Similar to the product_id column I need to see if it contains any null value
+
+SELECT * 
+FROM bigquery-public-data.thelook_ecommerce.inventory_items
+WHERE product_id IS NULL; 
+
+-- There is no null value in the product_id column
+-- Next, we see if all of the value in the product_id are from the product table 
+-- Also need to make sure that all of the product id are unique from the product table
+
+SELECT
+COUNT(id), 
+COUNT(DISTINCT(id))
+FROM bigquery-public-data.thelook_ecommerce.products;
+
+-- Now I see that all of the product ID are unique, let's check if all of the product id from the inventorty items and product are matched
+
+SELECT DISTINCT product_id
+FROM bigquery-public-data.thelook_ecommerce.inventory_items
+WHERE product_id IS NOT NULL
+AND product_id NOT IN (
+  SELECT id
+  FROM bigquery-public-data.thelook_ecommerce.products
+);
+-- Ok there is no data display means that all of the product_id from inventory_itemns and produxt tables are match. but we want to use different query to verify this by WHERE NOT EXISTS (I also will check if other column from inventory_items table are match with products table)
+
+SELECT 
+  product_id,
+  product_category, 
+  product_name, 
+  product_brand, 
+  product_department, 
+  product_sku, 
+  product_distribution_center_id
+FROM bigquery-public-data.thelook_ecommerce.inventory_items AS i
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM bigquery-public-data.thelook_ecommerce.products AS p
+  WHERE p.id = i.product_id
+);
+-- For the WHERE NOT EXISTS syntax is also does not have any data displpay means. So our product_id column is good
+-- Next I will work on the created_at and sold_at column, before all I want to make sure that all of the date data has to be before today date (18/12/2023) 
+SELECT 
+  created_at, 
+  sold_at 
+FROM  
+  bigquery-public-data.thelook_ecommerce.inventory_items
+WHERE 
+  DATE(created_at) > "2023-12-18" AND DATE(sold_at) > "2023-12-18";
+
+-- All created_at and sold_at datetime are before today (2023-12-18)
+-- Next, I have the created_at column is also needed to check is there ia any null value exists
+
+SELECT *
+FROM bigquery-public-data.thelook_ecommerce.inventory_items
+WHERE created_at IS NULL ;
+
+-- There is no data display so all good to move on the next step.
+-- For the created_at column, I want to make sure that all of the values are in UTC
+
+SELECT created_at
+FROM bigquery-public-data.thelook_ecommerce.inventory_items
+WHERE DATETIME(created_at) != DATETIME(TIMESTAMP(created_at), 'UTC');
+
+-- All good for the created_at column as all of the value are in UTC
+-- Now for the sold-at column I can obviosly see thata there are null values in this column, It means all of this items haven't be sold yet. 
+-- I also need to make sure that all of the sold_at timestamp are in UTC
+
+SELECT 
+sold_at 
+FROM bigquery-public-data.thelook_ecommerce.inventory_items 
+WHERE sold_at is not null
+AND DATETIME(sold_at) != DATETIME(TIMESTAMP(sold_at), 'UTC');
+
+-- All sold_at timestamp are in UTC
+-- I want to make sure that all of the sold_at time should be after created_at 
+
+SELECT 
+created_at, sold_at 
+FROM  bigquery-public-data.thelook_ecommerce.inventory_items
+WHERE sold_at <= created_at;
+
+-- The next column is cost. Similarly to previous columnn, I also have to make sure that there is no null value
+
+SELECT *
+FROM bigquery-public-data.thelook_ecommerce.inventory_items
+WHERE cost is null;
+
+-- The is no data to display so our cost data is accurate
+--  Make sure that all cost value is numerical value,check the product_retail_price. so I will write all in 1 query to save time
+
+SELECT 
+cost, product_retail_price
+FROM bigquery-public-data.thelook_ecommerce.inventory_items
+WHERE CAST(cost AS FLOAT64) IS NULL
+AND CAST(product_retail_price AS FLOAT64) IS NULL;
+
+-- We also have to make sure that the product_retail_price is bigger than our cost
+
+SELECT cost,  product_retail_price
+FROM bigquery-public-data.thelook_ecommerce.inventory_items
+WHERE cost > product_retail_price;
+
+-- Last step of verifying the intergrity of this table data will be making sure thta all of the product_disribution_id are match with distribution_centers.id
+
+
+SELECT product_distribution_center_id 
+FROM bigquery-public-data.thelook_ecommerce.inventory_items
+WHERE  product_distribution_center_id  NOT IN
+(SELECT id
+FROM bigquery-public-data.thelook_ecommerce.distribution_centers)
+
+-- All good to move to the next stage (data exploration)
